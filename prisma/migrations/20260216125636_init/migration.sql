@@ -1,42 +1,48 @@
 -- CreateTable
 CREATE TABLE "Benchmark" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "url" TEXT,
     "text" TEXT NOT NULL,
     "likes" INTEGER NOT NULL DEFAULT 0,
     "reposts" INTEGER NOT NULL DEFAULT 0,
     "replies" INTEGER NOT NULL DEFAULT 0,
     "quotes" INTEGER NOT NULL DEFAULT 0,
-    "score" REAL NOT NULL DEFAULT 0,
-    "postedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "score" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "postedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Benchmark_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "StyleProfile" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "hookType" TEXT NOT NULL,
     "structureType" TEXT NOT NULL,
     "toneFeatures" TEXT NOT NULL,
     "avgLength" INTEGER NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "StyleProfile_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Generation" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "theme" TEXT NOT NULL,
     "claim" TEXT NOT NULL,
     "episode" TEXT,
     "target" TEXT,
     "tone" TEXT NOT NULL,
     "ngWords" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Generation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Draft" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "generationId" INTEGER NOT NULL,
     "text" TEXT NOT NULL,
     "charCount" INTEGER NOT NULL,
@@ -47,9 +53,13 @@ CREATE TABLE "Draft" (
     "ngCaution" TEXT,
     "summary" TEXT NOT NULL,
     "tags" TEXT NOT NULL,
-    "similarityScore" REAL NOT NULL,
+    "similarityScore" DOUBLE PRECISION NOT NULL,
     "riskFlags" TEXT NOT NULL,
     "adopted" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Draft_generationId_fkey" FOREIGN KEY ("generationId") REFERENCES "Generation" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Draft_pkey" PRIMARY KEY ("id")
 );
+
+-- AddForeignKey
+ALTER TABLE "Draft" ADD CONSTRAINT "Draft_generationId_fkey" FOREIGN KEY ("generationId") REFERENCES "Generation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
