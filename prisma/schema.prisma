@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Benchmark {
+  id        Int       @id @default(autoincrement())
+  url       String?
+  text      String
+  likes     Int       @default(0)
+  reposts   Int       @default(0)
+  replies   Int       @default(0)
+  quotes    Int       @default(0)
+  score     Float     @default(0)
+  postedAt  DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model StyleProfile {
+  id            Int      @id @default(autoincrement())
+  hookType      String
+  structureType String
+  toneFeatures  String
+  avgLength     Int
+  createdAt     DateTime @default(now())
+}
+
+model Generation {
+  id        Int      @id @default(autoincrement())
+  theme     String
+  claim     String
+  episode   String?
+  target    String?
+  tone      String
+  ngWords   String?
+  drafts    Draft[]
+  createdAt DateTime @default(now())
+}
+
+model Draft {
+  id              Int        @id @default(autoincrement())
+  generationId    Int
+  generation      Generation @relation(fields: [generationId], references: [id])
+  text            String
+  charCount       Int
+  intent          String
+  hook            String
+  structure       String
+  takeaways       String
+  ngCaution       String?
+  summary         String
+  tags            String
+  similarityScore Float
+  riskFlags       String
+  adopted         Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+}
