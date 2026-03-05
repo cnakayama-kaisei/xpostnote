@@ -7,8 +7,36 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id             String         @id @default(cuid())
+  supabaseUserId String         @unique // Supabase auth.users UUID
+  email          String         @unique
+  displayName    String?
+  role           String         @default("customer") // "admin" | "customer"
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  profile        UserProfile?
+  benchmarks     Benchmark[]
+  styleProfiles  StyleProfile[]
+  generations    Generation[]
+}
+
+model UserProfile {
+  id          Int      @id @default(autoincrement())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  worldview   String?
+  audience    String?
+  experiences String?
+  toneRules   String?
+  ngWords     String?
+  updatedAt   DateTime @updatedAt
+}
+
 model Benchmark {
   id        Int       @id @default(autoincrement())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
   url       String?
   text      String
   likes     Int       @default(0)
@@ -22,6 +50,8 @@ model Benchmark {
 
 model StyleProfile {
   id            Int      @id @default(autoincrement())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
   hookType      String
   structureType String
   toneFeatures  String
@@ -31,6 +61,8 @@ model StyleProfile {
 
 model Generation {
   id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   theme     String
   claim     String
   episode   String?

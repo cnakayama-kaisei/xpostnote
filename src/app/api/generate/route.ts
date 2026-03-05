@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { maxSimilarity } from "@/lib/similarity";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { getAppUser } from "@/lib/auth";
 
 const SIMILARITY_THRESHOLD = 0.3;
 const MAX_RETRIES = 3;
@@ -92,7 +93,6 @@ ${ngWords ? `- NGワード: ${ngWords}` : ""}
   if (content.type !== "text") throw new Error("Unexpected response type");
 
   let jsonText = content.text.trim();
-  // Remove markdown code block if present
   if (jsonText.startsWith("```")) {
     jsonText = jsonText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
@@ -101,6 +101,9 @@ ${ngWords ? `- NGワード: ${ngWords}` : ""}
 }
 
 export async function POST(req: NextRequest) {
+  const appUser = await getAppUser();
+  if (!appUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const { theme, claim, episode, target, tone, ngWords } = body;
 
@@ -121,15 +124,15 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey });
 
-  // Fetch benchmarks for similarity check and style reference
   const benchmarks = await prisma.benchmark.findMany({
+    where: { userId: appUser.id },
     orderBy: { score: "desc" },
     take: 10,
   });
   const benchmarkTexts = benchmarks.map((b) => b.text);
 
-  // Build style info from StyleProfile if available
   const styleProfiles = await prisma.styleProfile.findMany({
+    where: { userId: appUser.id },
     orderBy: { createdAt: "desc" },
     take: 5,
   });
@@ -143,9 +146,9 @@ export async function POST(req: NextRequest) {
       .join("\n")}`;
   }
 
-  // Create generation record
   const generation = await prisma.generation.create({
     data: {
+      userId: appUser.id,
       theme,
       claim,
       episode: episode || null,
@@ -172,13 +175,11 @@ export async function POST(req: NextRequest) {
       ngWords
     );
 
-    // Check similarity for each draft
     const checkedDrafts = drafts.map((d) => {
       const simScore = maxSimilarity(d.text, benchmarkTexts);
       return { ...d, similarityScore: simScore };
     });
 
-    // Keep drafts that pass similarity check
     const passed = checkedDrafts.filter(
       (d) => d.similarityScore < SIMILARITY_THRESHOLD
     );
@@ -195,9 +196,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // If we still don't have enough, use what we have (with warnings)
   if (finalDrafts.length === 0) {
-    // Last resort: use drafts even if similarity is high, but add warning
     const drafts = await generateDrafts(
       client,
       benchmarkTexts,
@@ -217,10 +216,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Take only 3
   finalDrafts = finalDrafts.slice(0, 3);
 
-  // Add similarity_warning flag where appropriate
   finalDrafts = finalDrafts.map((d) => {
     const simScore = "similarityScore" in d ? (d as any).similarityScore : maxSimilarity(d.text, benchmarkTexts);
     const flags = [...d.risk_flags];
@@ -230,7 +227,6 @@ export async function POST(req: NextRequest) {
     return { ...d, similarityScore: simScore, risk_flags: flags };
   });
 
-  // Save drafts to DB
   const savedDrafts = await Promise.all(
     finalDrafts.map((d: any) =>
       prisma.draft.create({
