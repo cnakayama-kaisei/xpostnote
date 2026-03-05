@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createServerSupabase } from "./supabase/server";
 import { prisma } from "./prisma";
 
@@ -15,4 +16,22 @@ export async function getAppUser() {
   return prisma.user.findUnique({
     where: { supabaseUserId: user.id },
   });
+}
+
+/**
+ * ログイン必須。未ログインなら /login にリダイレクト。
+ */
+export async function requireAppUser() {
+  const user = await getAppUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+/**
+ * admin必須。未ログインなら /login、非adminなら / にリダイレクト。
+ */
+export async function requireAdmin() {
+  const user = await requireAppUser();
+  if (user.role !== "admin") redirect("/");
+  return user;
 }
