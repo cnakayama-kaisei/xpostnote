@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 interface Draft {
   id: number;
   text: string;
+  title: string | null;
   charCount: number;
   hook: string;
   structure: string;
@@ -199,6 +200,9 @@ export default function HistoryPage() {
                               )}
                             </div>
                           </div>
+                          {draft.title && (
+                            <p className="text-sm font-semibold mb-1">{draft.title}</p>
+                          )}
                           <p className="whitespace-pre-wrap text-sm">
                             {draft.text}
                           </p>

@@ -39,6 +39,7 @@ model Benchmark {
   user      User      @relation(fields: [userId], references: [id])
   url       String?
   text      String
+  category  String    @default("tweet") // "tweet" | "article" | "list"
   likes     Int       @default(0)
   reposts   Int       @default(0)
   replies   Int       @default(0)
@@ -69,6 +70,7 @@ model Generation {
   target    String?
   tone      String
   ngWords   String?
+  mode      String   @default("tweet") // "tweet" | "article" | "list"
   drafts    Draft[]
   createdAt DateTime @default(now())
 }
@@ -77,6 +79,7 @@ model Draft {
   id              Int        @id @default(autoincrement())
   generationId    Int
   generation      Generation @relation(fields: [generationId], references: [id])
+  title           String?    // article モード用タイトル
   text            String
   charCount       Int
   intent          String

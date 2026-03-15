@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
+type Mode = "tweet" | "article" | "list";
+
 interface Draft {
   id: number;
+  title: string | null;
   text: string;
   charCount: number;
   intent: string;
@@ -18,9 +21,16 @@ interface Draft {
   adopted: boolean;
 }
 
+const MODES: { id: Mode; label: string; icon: string; desc: string }[] = [
+  { id: "tweet", icon: "🐦", label: "140字ポスト", desc: "全体140字以内・1投稿1メッセージ" },
+  { id: "article", icon: "📝", label: "500字X記事", desc: "タイトル＋本文400〜500字" },
+  { id: "list", icon: "📋", label: "140字箇条書き", desc: "各行15字以内・全体140字以内" },
+];
+
 const TONES = ["カジュアル", "ビジネス", "煽り", "共感", "ユーモア"];
 
 export default function GeneratePage() {
+  const [selectedMode, setSelectedMode] = useState<Mode | null>(null);
   const [theme, setTheme] = useState("");
   const [claim, setClaim] = useState("");
   const [episode, setEpisode] = useState("");
@@ -31,10 +41,11 @@ export default function GeneratePage() {
   const [error, setError] = useState("");
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [generationId, setGenerationId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!theme.trim() || !claim.trim()) return;
+    if (!theme.trim() || !claim.trim() || !selectedMode) return;
     setLoading(true);
     setError("");
     setDrafts([]);
@@ -50,6 +61,7 @@ export default function GeneratePage() {
           target: target || null,
           tone,
           ngWords: ngWords || null,
+          mode: selectedMode,
         }),
       });
 
@@ -75,24 +87,18 @@ export default function GeneratePage() {
     );
   };
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (draftId: number, text: string) => {
     navigator.clipboard.writeText(text);
+    setCopiedId(draftId);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const parseTags = (tags: string): string[] => {
-    try {
-      return JSON.parse(tags);
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(tags); } catch { return []; }
   };
 
   const parseRiskFlags = (flags: string): string[] => {
-    try {
-      return JSON.parse(flags);
-    } catch {
-      return [];
-    }
+    try { return JSON.parse(flags); } catch { return []; }
   };
 
   const riskLabel = (flag: string) => {
@@ -105,9 +111,49 @@ export default function GeneratePage() {
     return map[flag] || flag;
   };
 
+  // Mode selection screen
+  if (!selectedMode) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold mb-2">ポスト生成</h1>
+        <p className="text-gray-600 mb-8">生成するポストのモードを選んでください</p>
+        <div className="grid grid-cols-1 gap-4 max-w-lg">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setSelectedMode(m.id)}
+              className="flex items-start gap-4 bg-white p-6 rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all text-left"
+            >
+              <span className="text-3xl">{m.icon}</span>
+              <div>
+                <div className="text-lg font-semibold text-gray-900">{m.label}</div>
+                <div className="text-sm text-gray-500 mt-1">{m.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const modeInfo = MODES.find((m) => m.id === selectedMode)!;
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">ポスト生成</h1>
+
+      {/* Mode badge */}
+      <div className="flex items-center gap-3 mb-6">
+        <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+          {modeInfo.icon} {modeInfo.label}
+        </span>
+        <button
+          onClick={() => { setSelectedMode(null); setDrafts([]); setError(""); }}
+          className="text-sm text-gray-500 hover:text-gray-700 underline"
+        >
+          変更
+        </button>
+      </div>
 
       <form
         onSubmit={handleGenerate}
@@ -133,18 +179,14 @@ export default function GeneratePage() {
               className="w-full border border-gray-300 rounded px-3 py-2"
             >
               {TONES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">
-            主張/メッセージ *
-          </label>
+          <label className="block text-sm font-medium mb-1">主張/メッセージ *</label>
           <textarea
             value={claim}
             onChange={(e) => setClaim(e.target.value)}
@@ -155,9 +197,7 @@ export default function GeneratePage() {
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">
-            具体ネタ/エピソード（任意）
-          </label>
+          <label className="block text-sm font-medium mb-1">具体ネタ/エピソード（任意）</label>
           <textarea
             value={episode}
             onChange={(e) => setEpisode(e.target.value)}
@@ -168,9 +208,7 @@ export default function GeneratePage() {
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
-              ターゲット層（任意）
-            </label>
+            <label className="block text-sm font-medium mb-1">ターゲット層（任意）</label>
             <input
               type="text"
               value={target}
@@ -180,9 +218,7 @@ export default function GeneratePage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
-              NGワード（任意、カンマ区切り）
-            </label>
+            <label className="block text-sm font-medium mb-1">NGワード（任意、カンマ区切り）</label>
             <input
               type="text"
               value={ngWords}
@@ -222,39 +258,31 @@ export default function GeneratePage() {
             {drafts.map((draft, i) => {
               const tags = parseTags(draft.tags);
               const risks = parseRiskFlags(draft.riskFlags);
+              const copyText = selectedMode === "article" && draft.title
+                ? `${draft.title}\n\n${draft.text}`
+                : draft.text;
               return (
                 <div
                   key={draft.id}
                   className={`bg-white p-6 rounded-lg border ${
-                    draft.adopted
-                      ? "border-green-400 bg-green-50"
-                      : "border-gray-200"
+                    draft.adopted ? "border-green-400 bg-green-50" : "border-gray-200"
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-sm font-medium text-gray-500">
-                      案 {i + 1}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {draft.charCount}文字
-                    </span>
+                    <span className="text-sm font-medium text-gray-500">案 {i + 1}</span>
+                    <span className="text-sm text-gray-500">{draft.charCount}文字</span>
                   </div>
 
-                  <p className="text-lg whitespace-pre-wrap mb-4">
-                    {draft.text}
-                  </p>
+                  {selectedMode === "article" && draft.title && (
+                    <p className="text-base font-bold text-gray-900 mb-2">📌 {draft.title}</p>
+                  )}
+
+                  <p className="text-lg whitespace-pre-wrap mb-4">{draft.text}</p>
 
                   <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-3">
-                    <div>
-                      <span className="font-medium">フック:</span> {draft.hook}
-                    </div>
-                    <div>
-                      <span className="font-medium">構成:</span>{" "}
-                      {draft.structure}
-                    </div>
-                    <div>
-                      <span className="font-medium">意図:</span> {draft.intent}
-                    </div>
+                    <div><span className="font-medium">フック:</span> {draft.hook}</div>
+                    <div><span className="font-medium">構成:</span> {draft.structure}</div>
+                    <div><span className="font-medium">意図:</span> {draft.intent}</div>
                     <div>
                       <span className="font-medium">類似度:</span>{" "}
                       {(draft.similarityScore * 100).toFixed(1)}%
@@ -264,10 +292,7 @@ export default function GeneratePage() {
                   {risks.length > 0 && (
                     <div className="flex gap-2 mb-3">
                       {risks.map((flag) => (
-                        <span
-                          key={flag}
-                          className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded"
-                        >
+                        <span key={flag} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
                           {riskLabel(flag)}
                         </span>
                       ))}
@@ -277,10 +302,7 @@ export default function GeneratePage() {
                   {tags.length > 0 && (
                     <div className="flex gap-2 mb-3">
                       {tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
-                        >
+                        <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
                           #{tag}
                         </span>
                       ))}
@@ -302,10 +324,10 @@ export default function GeneratePage() {
                       </span>
                     )}
                     <button
-                      onClick={() => handleCopy(draft.text)}
+                      onClick={() => handleCopy(draft.id, copyText)}
                       className="px-4 py-1.5 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
                     >
-                      コピー
+                      {copiedId === draft.id ? "コピー済み!" : "コピー"}
                     </button>
                   </div>
                 </div>
